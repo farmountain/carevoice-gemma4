@@ -1,0 +1,17 @@
+{
+  "id": "farmountain/carevoice-gemma4-clinical-intake",
+  "title": "CareVoice Gemma4 Clinical Intake",
+  "code_file": "notebook.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": ["gemma-4-good-hackathon"],
+  "kernel_sources": [],
+  "model_sources": [
+    "google/gemma-4/transformers/gemma-4-e4b-it/1"
+  ]
+}
