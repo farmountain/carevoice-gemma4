@@ -500,25 +500,37 @@ if SPRSOUND_DIR is None:
 print(f"SPRSound dir: {SPRSOUND_DIR}")
 
 # Build labeled test set from annotation JSONs
-ann_files = sorted(SPRSOUND_DIR.glob("**/train2022_json/*.json"))
-if not ann_files:
-    ann_files = sorted(SPRSOUND_DIR.glob("**/*.json"))[:20]
+# Scan all JSON annotation sub-directories (train + test) for maximum coverage
+ann_files = sorted(SPRSOUND_DIR.glob("**/*.json"))
 
-labeled = []
-for af in ann_files[:30]:
+_all_labeled = []
+for af in ann_files:
     try:
         ann      = json.loads(af.read_text())
         gt_label = ann.get("record_annotation", "")
         wavs     = list(SPRSOUND_DIR.glob(f"**/{af.stem}.wav"))
         if wavs and gt_label:
-            labeled.append({"wav": str(wavs[0]), "gt_label": gt_label})
+            _all_labeled.append({"wav": str(wavs[0]), "gt_label": gt_label})
     except Exception:
         pass
 
-# Fallback: grab first WAVs found
+# Prefer usable quality: Normal and Abnormal over Poor Quality
+# Balanced sample: aim for at least 1 Normal + 1 Abnormal
+_by_quality = {"Normal": [], "Abnormal": [], "other": []}
+for s in _all_labeled:
+    gt = s["gt_label"]
+    if gt == "Normal":
+        _by_quality["Normal"].append(s)
+    elif gt == "Abnormal":
+        _by_quality["Abnormal"].append(s)
+    elif "Poor" not in gt:
+        _by_quality["other"].append(s)
+
+labeled = []
+for k in ("Normal", "Abnormal", "other"):
+    labeled.extend(_by_quality[k][:3])     # up to 3 of each quality type
 if not labeled:
-    labeled = [{"wav": str(w), "gt_label": "unknown"}
-               for w in sorted(SPRSOUND_DIR.glob("**/*.wav"))[:5]]
+    labeled = _all_labeled[:5]             # last resort: any annotation
 
 import subprocess  # needed inside Kaggle cells
 N_AUD = min(3 if DEVICE == "cpu" else 5, len(labeled))
