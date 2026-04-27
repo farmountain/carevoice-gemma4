@@ -144,8 +144,8 @@ extracted_info:
 ║            CAREVOICE — EVALUATION SUMMARY               ║
 ╠══════════════════════════════════════════════════════════╣
 ║  Scene 1 — Red flag (3 languages)  : PASS ✅            ║
-║  Scene 2 — Image triage accuracy   : 80% (8/10 wounds)  ║
-║  Scene 3 — Audio analysis          : 5 recordings ✅    ║
+║  Scene 2 — Image triage (wounds)   : see notebook v21   ║
+║  Scene 3 — Audio analysis          : 3 recordings ✅    ║
 ║  Scene 4 — Multilingual            : 3 languages ✅     ║
 ╠══════════════════════════════════════════════════════════╣
 ║  Modalities  text + image + audio                       ║
