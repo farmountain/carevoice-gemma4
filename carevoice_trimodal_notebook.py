@@ -164,25 +164,32 @@ Always respond ONLY as valid JSON:
 IMAGE_SYSTEM = """You are CareVoice, triaging a patient-submitted clinical photo.
 green = routine care  |  yellow = evaluate within hours  |  red = emergency now
 
-Respond ONLY as valid JSON:
+IMPORTANT: Your ENTIRE response must be valid JSON. Start with { and end with }.
+No text before or after the JSON object.
+
 {
-  "response": "<findings in plain language for the patient>",
+  "response": "<findings in plain language>",
   "visual_findings": {
-    "image_type": "wound|skin_lesion|xray|medication|eye|other",
-    "description": "<clinical description>",
-    "severity_indicators": [],
-    "differential": []
+    "image_type": "wound",
+    "description": "<describe: wound size, colour, edges, signs of infection>",
+    "severity_indicators": ["<e.g. purulent discharge>"],
+    "differential": ["<e.g. laceration>"]
   },
   "extracted_info": {
-    "chief_complaint": null,
+    "chief_complaint": "<one-sentence summary>",
     "symptoms": [],
     "urgent": false,
     "escalation_reason": null,
-    "triage_level": "green|yellow|red"
+    "triage_level": "green"
   },
   "intake_complete": false,
-  "follow_up_questions": []
-}"""
+  "follow_up_questions": ["<one follow-up if needed>"]
+}
+
+Triage rules:
+- green: clean wound / minor abrasion / stable appearance
+- yellow: swelling, bruising, unclear depth, possible infection signs
+- red: active arterial bleeding, exposed bone/tendon, severe burns, systemic infection"""
 
 AUDIO_SYSTEM = """You are CareVoice listening to patient audio.
 If speech: transcribe and extract symptoms.
@@ -224,10 +231,27 @@ def extract_json(text: str) -> dict:
                 return json.loads(m.group(1))
             except json.JSONDecodeError:
                 pass
+    # Fallback: scan raw text for triage signal words
+    tl = text.lower()
+    triage = None
+    if any(w in tl for w in ["emergency", "emergenc", " red ", "call 911", "immediate", "arterial"]):
+        triage = "red"
+    elif any(w in tl for w in ["yellow", "evaluate", "infected", "infection", "hours"]):
+        triage = "yellow"
+    elif any(w in tl for w in ["green", "routine", "minor", "clean wound", "stable"]):
+        triage = "green"
+    desc = text.strip()[:200] if text.strip() else ""
     return {
         "response": text.strip(),
-        "extracted_info": {"chief_complaint": None, "symptoms": [],
-                           "urgent": False, "escalation_reason": None, "triage_level": None},
+        "visual_findings": {
+            "image_type": "other",
+            "description": desc,
+            "severity_indicators": [],
+            "differential": [],
+        },
+        "extracted_info": {"chief_complaint": desc[:80] or None, "symptoms": [],
+                           "urgent": triage == "red",
+                           "escalation_reason": None, "triage_level": triage},
         "intake_complete": False,
     }
 
@@ -257,7 +281,7 @@ def infer_text(conversation: list, max_new_tokens: int = 256 if "cpu" == DEVICE 
 
 # ── Image inference ───────────────────────────────────────────────────────────
 def infer_image(pil_img: Image.Image, context: str = "",
-                max_new_tokens: int = 300 if "cpu" == DEVICE else 500) -> dict:
+                max_new_tokens: int = 450 if "cpu" == DEVICE else 600) -> dict:
     text_q = context or "Triage this clinical image."
     msgs = [{"role": "user", "content": [
         {"type": "image"},
@@ -395,12 +419,29 @@ def parse_gt(answer: str) -> str:
             return k
     return "unknown"
 
-# Limit image samples to keep CPU runtime manageable (~5 min/image on CPU)
+# Limit image samples to keep CPU runtime manageable (~7 min/image on CPU).
+# Select balanced sample: 1 green + 1 yellow + 1 red for better demo coverage.
 N_IMG = 3 if DEVICE == "cpu" else 10
+_by_level: dict = {"green": [], "yellow": [], "red": []}
+for _s in urgency_samples:
+    _g = parse_gt(_s["answer"])
+    if _g in _by_level:
+        _by_level[_g].append(_s)
+# one representative from each urgency level, pad with greens if a level missing
+_balanced = []
+for _lvl in ["green", "yellow", "red"]:
+    if _by_level[_lvl]:
+        _balanced.append(_by_level[_lvl][0])
+# fill to N_IMG if needed
+while len(_balanced) < N_IMG and urgency_samples:
+    _s = urgency_samples[len(_balanced)]
+    if _s not in _balanced:
+        _balanced.append(_s)
+eval_samples = _balanced[:N_IMG]
 correct, total = 0, 0
 image_results  = []
 
-for sample in urgency_samples[:N_IMG]:
+for sample in eval_samples:
     pil_img = Image.open(io.BytesIO(base64.b64decode(sample["image"]))).convert("RGB")
     gt      = parse_gt(sample["answer"])
     t0      = time.time()

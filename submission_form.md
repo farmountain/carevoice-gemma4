@@ -85,20 +85,34 @@ CareVoice runs offline trimodal clinical intake on an 8 GB laptop using Gemma 4:
 |---|---|
 | Abnormal/normal detection accuracy | Reported in notebook |
 
-### Kaggle Notebook Scene Summary (v16)
+### Kaggle Notebook Scene Summary (v19 — actual kernel output, 2026-04-28)
 
 ```
-Scene 1  Red flag + multilingual (3 languages)   PASS
-Scene 2  Image triage (SurgWound)                >= 70% accuracy
-Scene 3  Audio respiratory analysis              5 recordings processed
-Scene 4  Multilingual benign/RF detection        3 languages auto-detected
+Scene 1  Red flag + multilingual (3 languages)   PASS ✅  (EN/ES/FR: urgent=True triage=red)
+Scene 2  Image triage accuracy (SurgWound GT)    0% (0/3) — fix shipped in v20
+Scene 3  Audio respiratory analysis              3 recordings processed (SPRSound)
+Scene 4  Multilingual auto-detect                3 languages ✅ (ES yellow, FR red, TL red)
+```
+
+*v19 confirmed: Gemma 4 trimodal inference ran to completion on CPU (no cloud, no GPU).
+Scene 1 latencies: EN 252.9 s · ES 179.5 s · FR 176.9 s.
+Scene 2 root-cause: max_new_tokens=300 truncated JSON before triage_level field — fixed to 450 in v20.*
+
+### Kaggle Notebook Scene Summary (v20 — in progress)
+
+```
+Scene 1  Red flag + multilingual (3 languages)   PASS ✅  (same as v19)
+Scene 2  Image triage accuracy (SurgWound GT)    [pending — balanced green/yellow/red sample]
+Scene 3  Audio respiratory analysis              3 recordings processed
+Scene 4  Multilingual auto-detect                3 languages ✅
 ```
 
 ---
 
 ## Submission Checklist
 
-- [ ] Kaggle notebook v16 ran to completion (check: `kaggle kernels status farmountain/carevoice-gemma4-clinical-intake`)
+- [x] Kaggle notebook v19 ran to completion — Scene 1 ✅ Scene 3 ✅ Scene 4 ✅ (v20 fixing Scene 2)
+- [ ] Kaggle notebook v20 ran to completion (fix: image max_new_tokens 300→450, balanced GT sample)
 - [ ] Scene metrics captured from notebook output into this document
 - [ ] GitHub repo public: https://github.com/farmountain/carevoice-gemma4
 - [ ] README.md committed (trimodal version)

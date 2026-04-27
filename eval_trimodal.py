@@ -984,6 +984,79 @@ def print_report(rep: dict):
 # 11.  MAIN
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def _dry_run_stats(n_text: int, seed: int, out: str) -> None:
+    """
+    Generate scenarios and print diversity statistics WITHOUT running any LLM inference.
+    Writes the full scenario list to <out>_scenarios.jsonl for inspection by judges.
+    """
+    random.seed(seed)
+    scenarios = build_text_scenarios(n_text)
+
+    cat_counts: Dict[str, int] = {}
+    for cat, _, _ in scenarios:
+        top = cat.split("/")[0]
+        cat_counts[top] = cat_counts.get(top, 0) + 1
+
+    path_counts: Dict[str, int] = {}
+    for cat, _, _ in scenarios:
+        if cat.startswith("red_flag/"):
+            p = cat[len("red_flag/"):]
+            path_counts[p] = path_counts.get(p, 0) + 1
+
+    lang_counts: Dict[str, int] = {}
+    for cat, _, _ in scenarios:
+        if cat.startswith("multilingual_"):
+            lang = cat.rsplit("_", 1)[-1]
+            lang_counts[lang] = lang_counts.get(lang, 0) + 1
+
+    n_urgent    = sum(1 for _, _, eu in scenarios if eu)
+    n_benign    = len(scenarios) - n_urgent
+    unique_texts = len({conv[-1]["content"] for _, conv, _ in scenarios})
+
+    w = 72
+    print("=" * w)
+    print("  CAREVOICE SCENARIO SPACE AUDIT  (--dry-run, no LLM inference)")
+    print("=" * w)
+    print(f"  Seed templates  : {len(_RF_SEEDS)} red-flag  +  {len(_BN_SEEDS)} benign  "
+          f"+  {len(_ADV_RF_SEEDS)} adv-RF  +  {len(_ADV_BN_SEEDS)} adv-BN")
+    print(f"  Slot pool sizes : loc×{len(_LOCS)}  side×{len(_SIDES)}  dur×{len(_DURS)}  "
+          f"med×{len(_MEDS)}  temp×{len(_TEMP)}  bp×{len(_BP)}  o2×{len(_O2SAT)}")
+    perm_approx = len(_LOCS) * len(_DURS) * len(_MEDS) * len(_TEMP) * len(_BP) * len(_O2SAT)
+    rf_space    = len(_RF_SEEDS) * (perm_approx // 6)   # most templates have ~3 of 6 possible slots
+    bn_space    = len(_BN_SEEDS) * len(_DURS) * len(_MEDS) * len(_BODY_PARTS)
+    print(f"  Theoretical unique RF space   : ~{rf_space:,}")
+    print(f"  Theoretical unique BN space   : ~{bn_space:,}")
+    print(f"  Total theoretical space       : ~{rf_space + bn_space:,}+")
+    print(f"  Requested N                   : {n_text:,}")
+    print(f"  Generated scenarios           : {len(scenarios):,}")
+    print(f"  Unique texts (de-duplicated)  : {unique_texts:,}")
+    print(f"  Urgent / Benign split         : {n_urgent} / {n_benign} "
+          f"({n_urgent/len(scenarios)*100:.1f}% / {n_benign/len(scenarios)*100:.1f}%)")
+    print("-" * w)
+    print("  Category breakdown:")
+    for k, v in sorted(cat_counts.items(), key=lambda x: -x[1]):
+        print(f"    {k:<35} {v:>5}")
+    print("-" * w)
+    print(f"  Pathologies covered ({len(path_counts)}):")
+    for k, v in sorted(path_counts.items(), key=lambda x: -x[1]):
+        print(f"    {k:<35} {v:>5}")
+    print("-" * w)
+    print(f"  Languages covered ({len(lang_counts)}): {', '.join(sorted(lang_counts))}")
+    print("=" * w)
+
+    out_path = pathlib.Path(out.replace(".json", "") + "_scenarios.jsonl")
+    with out_path.open("w", encoding="utf-8") as fh:
+        for i, (cat, conv, eu) in enumerate(scenarios):
+            fh.write(json.dumps({
+                "id": f"text_{i:04d}",
+                "category": cat,
+                "expect_urgent": eu,
+                "text": conv[-1]["content"],
+            }) + "\n")
+    print(f"  Scenarios written → {out_path}  ({out_path.stat().st_size // 1024} KB)")
+    print()
+
+
 def main():
     ap = argparse.ArgumentParser(description="CareVoice Trimodal Evaluator")
     ap.add_argument("--mode",         choices=["http", "direct"], default="http")
@@ -1000,9 +1073,15 @@ def main():
                     help="Parallel workers for text; image+audio are serialised")
     ap.add_argument("--seed",         type=int, default=42)
     ap.add_argument("--out",          type=str, default="eval_report.json")
+    ap.add_argument("--dry-run",      action="store_true",
+                    help="Generate scenarios + print diversity stats without LLM inference")
     args = ap.parse_args()
 
     random.seed(args.seed)
+
+    if args.dry_run:
+        _dry_run_stats(args.n_text, args.seed, args.out)
+        return
 
     # Health check
     if args.mode == "http":
