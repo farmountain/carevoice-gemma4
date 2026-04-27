@@ -1,6 +1,6 @@
 {
   "id": "farmountain/carevoice-gemma4-clinical-intake",
-  "title": "CareVoice Gemma4 Clinical Intake",
+  "title": "CareVoice Trimodal Clinical Intake Text Image Audio",
   "code_file": "notebook.ipynb",
   "language": "python",
   "kernel_type": "notebook",

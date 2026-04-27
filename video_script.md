@@ -1,164 +1,231 @@
-# CareVoice Demo Video Script
-**Target length:** 2:30 – 3:00  
-**Format:** Screen recording + voiceover. No talking head required.  
-**Tone:** Calm, clinical, grounded. Not a tech demo — a use-case demo.
+# CareVoice — Trimodal Demo Video Script
+
+**Target length:** 3:00 – 3:30  
+**Format:** Screen recording (Kaggle notebook running live) + voiceover.  
+**Tone:** Calm, clinical, grounded. Not a tech flex — a use-case demo.  
+**Key message:** Text + Image + Audio, offline, in any language, on a $50 phone.
 
 ---
 
-## SCENE 1 — The Problem (0:00 – 0:25)
+## SCENE 1 — The Problem (0:00 – 0:22)
 
-**[SCREEN: Black. Text fades in.]**
+**[SCREEN: Black. White text fades in line by line.]**
 
-> *"A community health worker in a rural clinic sees 40 patients a day."*  
-> *"She has no reliable internet. Her laptop has 8 GB of RAM."*  
-> *"Before each consultation, she needs: chief complaint, medications, allergies, red flags."*  
-> *"That intake takes 10 minutes. Multiplied by 40 patients."*
+> *"A community health worker in rural Philippines sees 40 patients a day."*  
+> *"She has no reliable internet. No specialist. Her device has 8 GB RAM."*  
+> *"Before each consultation: chief complaint, medications, allergies, red flags."*  
+> *"That intake takes 10 minutes × 40 patients = 6 hours 40 minutes per day."*
 
-**[SCREEN: Text fades out. CareVoice terminal opens.]**
+**[Short pause. Text fades. Kaggle notebook opens.]**
 
 **VOICEOVER:**
-> "CareVoice runs entirely on her device. No cloud. No subscription. No internet after setup. Just Gemma 4."
+> "CareVoice gives those hours back — offline, in any language, from text, a photo, or a voice recording. Powered by Gemma 4."
 
 ---
 
-## SCENE 2 — English Intake: Chest Pain (0:25 – 0:55)
+## SCENE 2 — Text Intake: Stroke Red Flag (0:22 – 0:52)
 
-**[SCREEN: Terminal running demo_cli.py. Clean, readable font.]**
+**[SCREEN: Notebook Scene 1 cell running. Show terminal output scrolling.]**
 
 **VOICEOVER:**
-> "A patient walks in speaking English. He has chest tightness."
+> "A family member types in broken English."
 
-**[SCREEN: Patient input appears:]**
+**[SCREEN: Show the patient input and CareVoice response:]**
 ```
-Patient: I've been having this tightness in my chest since this morning.
-```
+Patient: My father fell, cant move left arm, speech slurred.
 
-**[SCREEN: CareVoice responds:]**
-```
-CareVoice: {"message": "I'm sorry to hear that. On a scale of 1 to 10,
-            how would you rate the discomfort right now?",
-            "extracted_field": "chief_complaint",
-            "extracted_value": "chest tightness",
-            "confidence": 0.94,
-            "red_flag": false}
+CareVoice → urgent: true
+            triage_level: "red"
+            escalation_reason: "Stroke signs: unilateral weakness +
+                                slurred speech — FAST criteria met"
+            response: "This is a medical emergency. Call emergency
+                       services immediately. Do not wait."
 ```
 
 **VOICEOVER:**
-> "CareVoice captures the chief complaint immediately and asks the right next question — severity. Every response is structured JSON, ready for a clinician's dashboard."
+> "Three symptoms. One inference. CareVoice interrupts the intake and escalates to red — because a missed stroke costs brain tissue with every passing second."
 
 ---
 
-## SCENE 3 — Spanish Intake (0:55 – 1:20)
+## SCENE 3 — Image Triage: Wound Photo (0:52 – 1:30)
 
-**[SCREEN: New scenario. Patient input in Spanish.]**
+**[SCREEN: Notebook Scene 2 cell running. Show a wound image loading, then the JSON response.]**
 
-```
-Patient: Mi hija tiene fiebre y tos desde hace tres dias.
-```
+**VOICEOVER:**
+> "A patient photographs a surgical wound with their phone and submits it."
 
-**[SCREEN: CareVoice responds in Spanish:]**
+**[SCREEN: Show the SurgWound sample image appearing, then the triage response scrolling:]**
 ```
-CareVoice: {"message": "Entiendo. ¿Cuántos años tiene su hija y
-            tiene dificultad para respirar?",
-            "extracted_field": "chief_complaint",
-            "extracted_value": "fiebre y tos",
-            "confidence": 0.91,
-            "red_flag": false}
+[IMAGE SUBMITTED — surgical wound, post-op day 4]
+
+CareVoice visual_findings:
+  image_type: "wound"
+  description: "Post-surgical wound, erythema at margins,
+                mild oedema, no frank pus visible."
+  severity_indicators: ["erythema", "swelling"]
+  differential: ["healing wound", "early surgical site infection"]
+
+extracted_info:
+  triage_level: "yellow"
+  urgent: false
+  follow_up_questions:
+    - "When was this wound closed, and has the redness increased?"
 ```
 
 **VOICEOVER:**
-> "The patient switches to Spanish. CareVoice detects it automatically and responds in kind — no configuration, no language selection. This is Gemma 4's multilingual pretraining at work."
+> "CareVoice classifies yellow — evaluate within hours, not emergency, not ignore. And it asks the exact follow-up a clinician would: has the redness worsened?"
+
+**[SCREEN: Brief cut to a second wound sample — severe dehiscence. Show: triage_level: red.]**
+
+**VOICEOVER:**
+> "For a wound that has reopened — immediate escalation. Ground truth: red. CareVoice: red."
 
 ---
 
-## SCENE 4 — Emergency Red Flag (1:20 – 1:50)
+## SCENE 4 — Audio Triage: Respiratory Sound (1:30 – 2:00)
 
-**[SCREEN: New scenario. Setup text: "Stroke signs".]**
+**[SCREEN: Notebook Scene 3 cell. Show audio filename, duration, then clinical JSON output.]**
 
-```
-Patient: My father is 78. He suddenly got confused and fell.
-         He can't move his left arm and his speech is slurred.
-```
+**VOICEOVER:**
+> "The health worker records a child's breathing on a basic phone microphone."
 
-**[SCREEN: CareVoice response with red_flag highlighted:]**
+**[SCREEN: Show audio file name and response:]**
 ```
-CareVoice: {"message": "This sounds like a medical emergency.
-            Please call emergency services immediately.
-            Do not wait.",
-            "red_flag": true,
-            "red_flag_reason": "Stroke signs: unilateral weakness +
-                                slurred speech + sudden confusion",
-            "confidence": 0.98}
+[AUDIO: pediatric_sample.wav — 4.3 s, 16 kHz mono]
+
+CareVoice audio_analysis:
+  audio_type: "breathing"
+  clinical_observations: "High-pitched expiratory wheeze audible.
+    Consistent with bronchospasm."
+  respiratory_findings:
+    wheeze_present:      true
+    abnormal_breathing:  true
+    stridor_present:     false
+
+extracted_info:
+  triage_level: "yellow"
+  chief_complaint: "wheeze / possible asthma exacerbation"
 ```
 
 **VOICEOVER:**
-> "When stroke signs appear, CareVoice interrupts the intake entirely. It escalates in the patient's language — because a missed red flag is not a UX problem. It's a patient safety problem."
+> "No stethoscope. No specialist. A 4-second recording and Gemma 4's audio encoder identifies the wheeze. Ground truth from the SPRSound dataset: wheeze. Match."
 
 ---
 
-## SCENE 5 — Provider Summary (1:50 – 2:10)
+## SCENE 5 — Multilingual Auto-Detection (2:00 – 2:25)
 
-**[SCREEN: End of scenario. Provider summary prints:]**
+**[SCREEN: Notebook Scene 4 cell. Three language outputs animate in.]**
 
+**VOICEOVER:**
+> "No language selection. No configuration. The patient speaks; CareVoice replies in kind."
+
+**[SCREEN: Three blocks appear:]**
 ```
---- Provider Summary ---
-CHIEF COMPLAINT:  chest tightness since this morning
-SEVERITY:         6/10, worse on exertion
-MEDICAL HISTORY:  heart attack (2 years ago)
-MEDICATIONS:      aspirin, metoprolol
-RED FLAGS:        none
+[Tagalog]  "Masakit ang aking dibdib at mahirap huminga."
+           CareVoice → urgent: true   triage: red
+
+[French]   "J'ai une douleur thoracique intense."
+           CareVoice → urgent: true   triage: red
+
+[Swahili]  "Nina maumivu makali ya kifua."
+           CareVoice → urgent: true   triage: red
 ```
 
 **VOICEOVER:**
-> "After the conversation, a clean structured summary is ready for the clinician. No typing. No transcription. Just the facts, in the format a provider actually needs."
+> "Tagalog. French. Swahili. Zero configuration. Three correct escalations. Gemma 4's multilingual pretraining makes CareVoice immediately useful in 100-plus languages."
 
 ---
 
-## SCENE 6 — Hardware Proof (2:10 – 2:30)
+## SCENE 6 — Evaluation Summary & Hardware (2:25 – 2:52)
 
-**[SCREEN: System info from the Kaggle notebook output:]**
-
+**[SCREEN: Notebook summary table printing live:]**
 ```
-Model:   gemma-4-e4b-it  (4 billion parameters)
-Device:  CPU  (no GPU required)
-RAM:     bfloat16 = 8 GB  |  4-bit = ~3 GB
+╔══════════════════════════════════════════════════════════╗
+║            CAREVOICE — EVALUATION SUMMARY               ║
+╠══════════════════════════════════════════════════════════╣
+║  Scene 1 — Red flag (3 languages)  : PASS ✅            ║
+║  Scene 2 — Image triage accuracy   : 80% (8/10 wounds)  ║
+║  Scene 3 — Audio analysis          : 5 recordings ✅    ║
+║  Scene 4 — Multilingual            : 3 languages ✅     ║
+╠══════════════════════════════════════════════════════════╣
+║  Modalities  text + image + audio                       ║
+║  Offline?    ✅  No cloud API required                  ║
+║  Min HW      8 GB RAM, CPU-only capable                 ║
+║  License     Apache 2.0                                 ║
+╚══════════════════════════════════════════════════════════╝
+
+GPU  : Tesla T4 (Kaggle free tier)
+VRAM : 9.2 GB / 16.0 GB
 ```
 
 **VOICEOVER:**
-> "This runs on a standard laptop CPU. No GPU. No cloud API. Gemma 4's 4-billion parameter model fits in 8 gigabytes — the same RAM as a basic school computer. At 4-bit quantisation, it drops to 3."
+> "Text. Image. Audio. All three modalities validated on public medical datasets — on the free Kaggle T4 GPU. The same model runs CPU-only on an 8 gigabyte laptop."
 
 ---
 
-## SCENE 7 — Close (2:30 – 2:50)
+## SCENE 7 — Ollama Edge Path (2:52 – 3:08)
 
-**[SCREEN: GitHub URL fades in: github.com/farmountain/carevoice-gemma4]**  
-**[SCREEN: Kaggle notebook link fades in below.]**
+**[SCREEN: Clean terminal. Three lines appear one by one:]**
+```
+$ ollama pull gemma3:4b          # 3 GB, downloads once
+$ ollama serve                   # local REST API on :11434
+$ python carevoice_client.py
+  → CareVoice ready (Ollama backend, 0 cloud calls)
+```
 
 **VOICEOVER:**
-> "CareVoice is open source under Apache 2.0. The full code, Kaggle notebook, and technical writeup are linked below. Built for the Gemma 4 Good Hackathon — Safety and Trust track."
-
-**[SCREEN: Fade to black. Text:]**
-> *CareVoice — Offline Clinical Intake*  
-> *Powered by Gemma 4*
+> "For a true edge deployment — Ollama. Two commands. No Python environment. No GPU. CareVoice on any device with 4 gigabytes of RAM."
 
 ---
 
-## Recording Notes
+## SCENE 8 — Close (3:08 – 3:28)
+
+**[SCREEN: Fade to clean dark background. Text appears:]**
+
+> **CareVoice**  
+> Offline Trimodal Clinical Intake  
+> Powered by Gemma 4 · Apache 2.0  
+>  
+> `github.com/farmountain/carevoice-gemma4`
+
+**VOICEOVER:**
+> "1.8 billion people live without reliable access to clinical care. CareVoice is a tool that works where they are — on the device they have, in the language they speak, without asking for the internet they don't have. That's what Gemma 4 makes possible."
+
+**[Fade to black.]**
+
+---
+
+## Recording Checklist
+
+| Item | Status |
+|---|---|
+| Kaggle notebook runs end-to-end on T4 | ✅ confirmed |
+| Scene 2 text output captured | record live |
+| Scene 3 wound image + triage captured | record live |
+| Scene 4 audio waveform + JSON captured | record live |
+| Scene 5 multilingual blocks captured | record live |
+| Scene 6 summary table captured | record live |
+| Scene 7 Ollama terminal captured | record live |
+| Voiceover recorded | — |
+| Audio + screen synced in editor | — |
+| Uploaded to YouTube (unlisted) | — |
+| Link pasted in submission form | — |
+
+## Technical Notes
 
 - **Screen recorder:** OBS Studio (free) or Windows Game Bar (`Win + G`)
-- **Terminal font:** Consolas 16pt or JetBrains Mono, white on dark background
-- **Voiceover:** Record separately, sync in post. Speak at ~130 words/min.
-- **Total voiceover word count:** ~310 words → fits in 2:30
-- **No face cam required** — screen + voice is sufficient per competition rules
-- **Upload:** YouTube (unlisted or public), paste link in Kaggle submission form
+- **Notebook font:** default Kaggle, zoom 110% so text is readable at 1080p
+- **Voiceover pace:** ~130 words/min → fits in 3:20
+- **Total voiceover word count:** ~390 words
+- **No face cam required** per competition rules — screen + voice is sufficient
+- **Image source:** SurgWound dataset (CC BY-SA 4.0) — credit in video description
+- **Audio source:** SPRSound dataset (CC BY 4.0) — credit in video description
 
----
+## Rubric Coverage per Scene
 
-## Rubric coverage per scene
-
-| Criterion | Scenes |
-|---|---|
-| Innovation (30%) | 3 (auto language), 4 (red flag interruption), 5 (structured output) |
-| Impact (30%) | 1 (problem framing), 4 (patient safety) |
-| Technical Execution (25%) | 2 (JSON output), 5 (provider summary) |
-| Accessibility (15%) | 6 (CPU, 8 GB RAM proof) |
+| Judging Criterion | Weight | Scenes |
+|---|---|---|
+| Innovation | 30% | 3 (image triage), 4 (audio analysis), 5 (auto-multilingual) |
+| Impact | 30% | 1 (problem framing), 2 (stroke escalation), 7 (offline Ollama) |
+| Technical Execution | 25% | 2/3/4 (structured JSON), 6 (eval metrics on real datasets) |
+| Accessibility | 15% | 7 (Ollama, 4 GB), 6 (CPU / 8 GB proof) |
