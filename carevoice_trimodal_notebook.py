@@ -94,32 +94,29 @@ if not MODEL_PATH:
 print(f"Model path : {MODEL_PATH}")
 
 # GPU selection:
-#  sm_75+ (T4, A100…)  → CUDA + bfloat16 (native hardware support)
-#  sm_60   (P100)      → CUDA + float16  (native fp16; bfloat16 emulated on Pascal)
-#  no CUDA / sm < 6    → CPU + bfloat16  (safe on all CPUs, slower)
-USE_GPU = False
-MODEL_DTYPE = torch.bfloat16   # default for CPU
+#  PyTorch 2.10.0+cu128 supports sm_70+ only.
+#  P100 (sm_60) is NOT supported — must use CPU.
+#  T4 (sm_75), A100 (sm_80), H100 (sm_90) → CUDA + bfloat16.
+USE_GPU = torch.cuda.is_available() and torch.cuda.get_device_capability(0)[0] >= 7
+DEVICE  = "cuda" if USE_GPU else "cpu"
 if torch.cuda.is_available():
     _sm = torch.cuda.get_device_capability(0)
     _sm_int = _sm[0] * 10 + _sm[1]
-    if _sm_int >= 60:          # P100 (sm_60) and above
-        USE_GPU = True
-        MODEL_DTYPE = torch.bfloat16 if _sm_int >= 75 else torch.float16
-        print(f"GPU sm_{_sm_int}: {'bfloat16' if _sm_int >= 75 else 'float16 (P100 compat)'}")
+    if not USE_GPU:
+        print(f"GPU sm_{_sm_int} not supported by PyTorch 2.10+cu128 (needs sm_70+) → CPU")
     else:
-        print(f"GPU sm_{_sm_int} < sm_60: falling back to CPU")
-DEVICE = "cuda" if USE_GPU else "cpu"
-print(f"Device     : {DEVICE}  |  dtype: {MODEL_DTYPE}")
+        print(f"GPU sm_{_sm_int} → CUDA bfloat16")
+print(f"Device     : {DEVICE}")
 
 print("Loading processor…")
 processor = AutoProcessor.from_pretrained(
     MODEL_PATH, local_files_only=True, padding_side="left"
 )
 
-print(f"Loading model in {MODEL_DTYPE} (~15 s GPU, ~90 s CPU)…")
+print("Loading model in bfloat16 (~15 s on GPU, ~5 min on CPU)…")
 model = AutoModelForImageTextToText.from_pretrained(
     MODEL_PATH,
-    torch_dtype=MODEL_DTYPE,
+    torch_dtype=torch.bfloat16,
     device_map="auto" if USE_GPU else "cpu",
     local_files_only=True,
     attn_implementation="eager",
@@ -235,7 +232,7 @@ def extract_json(text: str) -> dict:
     }
 
 # ── Text inference ────────────────────────────────────────────────────────────
-def infer_text(conversation: list, max_new_tokens: int = 400) -> dict:
+def infer_text(conversation: list, max_new_tokens: int = 256 if "cpu" == DEVICE else 400) -> dict:
     # Use system role; Gemma 4 chat template maps it to <start_of_turn>system
     msgs = [{"role": "system", "content": TEXT_SYSTEM}]
     for m in conversation:
@@ -260,7 +257,7 @@ def infer_text(conversation: list, max_new_tokens: int = 400) -> dict:
 
 # ── Image inference ───────────────────────────────────────────────────────────
 def infer_image(pil_img: Image.Image, context: str = "",
-                max_new_tokens: int = 500) -> dict:
+                max_new_tokens: int = 300 if "cpu" == DEVICE else 500) -> dict:
     text_q = context or "Triage this clinical image."
     msgs = [{"role": "user", "content": [
         {"type": "image"},
@@ -301,7 +298,7 @@ def load_wav(path: str) -> np.ndarray:
     return arr
 
 def infer_audio(audio_arr: np.ndarray, context: str = "",
-                max_new_tokens: int = 400) -> dict:
+                max_new_tokens: int = 256 if "cpu" == DEVICE else 400) -> dict:
     text_q = context or "Analyze this respiratory audio clinically."
     msgs = [{"role": "user", "content": [
         {"type": "audio"},
@@ -398,7 +395,8 @@ def parse_gt(answer: str) -> str:
             return k
     return "unknown"
 
-N_IMG = 10
+# Limit image samples to keep CPU runtime manageable (~5 min/image on CPU)
+N_IMG = 3 if DEVICE == "cpu" else 10
 correct, total = 0, 0
 image_results  = []
 
@@ -482,7 +480,7 @@ if not labeled:
                for w in sorted(SPRSOUND_DIR.glob("**/*.wav"))[:5]]
 
 import subprocess  # needed inside Kaggle cells
-N_AUD = min(5, len(labeled))
+N_AUD = min(3 if DEVICE == "cpu" else 5, len(labeled))
 audio_results = []
 
 for sample in labeled[:N_AUD]:
