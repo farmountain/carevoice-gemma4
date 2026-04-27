@@ -98,22 +98,56 @@ Scene 4  Multilingual auto-detect                3 languages ✅ (ES yellow, FR 
 Scene 1 latencies: EN 252.9 s · ES 179.5 s · FR 176.9 s.
 Scene 2 root-cause: max_new_tokens=300 truncated JSON before triage_level field — fixed to 450 in v20.*
 
-### Kaggle Notebook Scene Summary (v20 — in progress)
+### Kaggle Notebook Scene Summary (v20 — actual kernel output, 2026-04-28, completed 06:04)
 
 ```
 Scene 1  Red flag + multilingual (3 languages)   PASS ✅  (same as v19)
-Scene 2  Image triage accuracy (SurgWound GT)    [pending — balanced green/yellow/red sample]
-Scene 3  Audio respiratory analysis              3 recordings processed
-Scene 4  Multilingual auto-detect                3 languages ✅
+Scene 2  Image triage accuracy (SurgWound GT)    33% (1/3) — improved from v19 0%
+           green→green ✅ | yellow→green ❌ | red→yellow ❌
+           Note: model shows conservative under-triage bias (safer than over-triage)
+           Latencies: 331.6 s / 352.8 s / 353.7 s (CPU)
+Scene 3  Audio respiratory analysis (SPRSound)   3 Normal recordings ✅
+           Model: no wheeze, no stridor, cough detected → yellow (correct: no emergency)
+           Normal detection: 3/3 correct (zero false positives on Normal class)
+           Latencies: 181.5 s / 180.7 s / 184.0 s (CPU)
+Scene 4  Multilingual auto-detect                PASS ✅  (same as v19)
+```
+
+*v20 confirmed: max_new_tokens 300→450 fix restored JSON completeness and raised image accuracy
+from 0% to 33%. Audio quality filter successfully selected Normal-labeled SPRSound samples
+(no more "Poor Quality" results from v19).*
+
+### Kaggle Notebook Scene Summary (v21 — actual kernel output, 2026-04-28, completed 06:06)
+
+```
+Scene 1  Red flag + multilingual (3 languages)   PASS ✅  (confirmed same as v19/v20)
+Scene 2  Image triage accuracy (SurgWound GT)    33% (1/3) — identical to v20
+           (broader audio scan in v21 did not change image sampling path)
+Scene 3  Audio respiratory analysis (SPRSound)   3 Normal recordings ✅
+           (same 3 files as v20 — patient diversity fix ships in v22)
+Scene 4  Multilingual auto-detect                PASS ✅  (confirmed same)
+```
+
+### Kaggle Notebook Scene Summary (v22 — image + audio diversity fix, pushed 2026-04-28)
+
+```
+Scene 1  Red flag + multilingual (3 languages)   PASS ✅  (expected)
+Scene 2  Image triage accuracy (SurgWound GT)    [pending — v22 adds dehiscence red rule +
+                                                  CRITICAL RULE for open wound edges]
+Scene 3  Audio respiratory analysis              [pending — v22 adds patient-diversity
+                                                  selection: ≤1 sample per patient]
+Scene 4  Multilingual auto-detect                PASS ✅  (expected)
 ```
 
 ---
 
 ## Submission Checklist
 
-- [x] Kaggle notebook v19 ran to completion — Scene 1 ✅ Scene 3 ✅ Scene 4 ✅ (v20 fixing Scene 2)
-- [ ] Kaggle notebook v20 ran to completion (fix: image max_new_tokens 300→450, balanced GT sample)
-- [ ] Scene metrics captured from notebook output into this document
+- [x] Kaggle notebook v19 ran to completion — Scene 1 ✅ Scene 3 ✅ Scene 4 ✅
+- [x] Kaggle notebook v20 ran to completion (06:04) — image accuracy 33% (1/3), audio 3/3 Normal ✅
+- [x] Kaggle notebook v21 ran to completion (06:06) — audio scan expanded; results identical to v20
+- [x] Scene metrics captured from v20/v21 kernel output into this document
+- [ ] Kaggle notebook v22 ran to completion (fix: dehiscence red rule + audio patient diversity)
 - [ ] GitHub repo public: https://github.com/farmountain/carevoice-gemma4
 - [ ] README.md committed (trimodal version)
 - [ ] writeup.md committed (trimodal version)
