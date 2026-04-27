@@ -187,9 +187,11 @@ No text before or after the JSON object.
 }
 
 Triage rules:
-- green: clean wound / minor abrasion / stable appearance
-- yellow: swelling, bruising, unclear depth, possible infection signs
-- red: active arterial bleeding, exposed bone/tendon, severe burns, systemic infection"""
+- green: clean, intact sutured wound healing normally; minor superficial abrasion; no edge separation; no signs of infection
+- yellow: any wound with swelling, bruising, erythema (redness), crusting with unclear margins, shallow but non-trivial wound; evaluate within hours
+- red: wound dehiscence (separated or gaping wound edges, open wound margins); active bleeding; exposed bone/tendon/muscle; severe burns; signs of systemic infection; any reopened surgical wound
+
+CRITICAL RULE: if the wound edges appear "somewhat open", "separated", "gaping", "not well-approximated", or "open margins" → triage_level MUST be "red" and urgent MUST be true."""
 
 AUDIO_SYSTEM = """You are CareVoice listening to patient audio.
 If speech: transcribe and extract symptoms.
@@ -234,9 +236,12 @@ def extract_json(text: str) -> dict:
     # Fallback: scan raw text for triage signal words
     tl = text.lower()
     triage = None
-    if any(w in tl for w in ["emergency", "emergenc", " red ", "call 911", "immediate", "arterial"]):
+    if any(w in tl for w in ["emergency", "emergenc", " red ", "call 911", "immediate", "arterial",
+                              "dehisc", "open wound", "open margin", "gaping", "separated edge",
+                              "exposed bone", "exposed tendon", "exposed muscle"]):
         triage = "red"
-    elif any(w in tl for w in ["yellow", "evaluate", "infected", "infection", "hours"]):
+    elif any(w in tl for w in ["yellow", "evaluate", "infected", "infection", "hours",
+                                "erythema", "swelling", "crusting", "redness"]):
         triage = "yellow"
     elif any(w in tl for w in ["green", "routine", "minor", "clean wound", "stable"]):
         triage = "green"
@@ -526,9 +531,29 @@ for s in _all_labeled:
     elif "Poor" not in gt:
         _by_quality["other"].append(s)
 
+def _pick_diverse(samples: list, n: int) -> list:
+    """Pick up to n samples, at most 1 per patient (filename prefix before first _)."""
+    seen_patients: set = set()
+    chosen = []
+    for s in samples:
+        patient = Path(s["wav"]).stem.split("_")[0]
+        if patient not in seen_patients:
+            seen_patients.add(patient)
+            chosen.append(s)
+        if len(chosen) >= n:
+            break
+    # If not enough unique patients, fill from remainder
+    if len(chosen) < n:
+        for s in samples:
+            if s not in chosen:
+                chosen.append(s)
+            if len(chosen) >= n:
+                break
+    return chosen
+
 labeled = []
 for k in ("Normal", "Abnormal", "other"):
-    labeled.extend(_by_quality[k][:3])     # up to 3 of each quality type
+    labeled.extend(_pick_diverse(_by_quality[k], 2))   # up to 2 diverse patients per quality
 if not labeled:
     labeled = _all_labeled[:5]             # last resort: any annotation
 
