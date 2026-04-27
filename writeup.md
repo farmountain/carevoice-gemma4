@@ -123,7 +123,7 @@ All datasets are publicly available and equally accessible to all competition pa
 
 ### Synthetic text scenarios (500+)
 
-Programmatically generated from 34 red-flag seed templates and 25 benign templates, each expanded combinatorially across slots (location, duration, medication, allergen, family member). Additional layers: 20 multilingual red-flag phrases in 16 languages, 8 multilingual benign phrases, 12 edge cases, 3 multi-turn escalation conversations. Scenario distribution: ~38% red-flag, ~58% benign, ~4% edge cases — reflecting realistic clinical triage volume.
+Programmatically generated from 68 red-flag seed templates (13 pathologies) and 35 benign templates, each expanded combinatorially across slots (location, duration, medication, allergen, family member, temperature, BP, O2 sat). Additional layers: 35 multilingual red-flag phrases in 16 languages (cardiac, stroke, respiratory, suicide, sepsis), 16 multilingual benign phrases, 20 adversarial red-flag scenarios (downplayed urgency), 10 adversarial benign scenarios (alarming-sounding but not urgent), 12 edge cases, 5 multi-turn escalation conversations. Theoretical unique scenario space: ~760,000+. Scenario distribution: ~38% red-flag, ~58% benign, ~4% edge cases — reflecting realistic clinical triage volume.
 
 ---
 
@@ -153,14 +153,18 @@ Programmatically generated from 34 red-flag seed templates and 25 benign templat
 | Abnormal/normal detection accuracy | reported in notebook output |
 | Sample rate compatibility | 16 kHz native, zero resampling |
 
-### Kaggle notebook scene summary
+### Kaggle notebook scene summary (v19 — confirmed run on CPU, 2026-04-28)
 
 ```
-Scene 1  Red flag, 3 languages    PASS
-Scene 2  Image triage accuracy    >=70%
-Scene 3  Audio analysis           5 recordings processed
-Scene 4  Multilingual             3 languages auto-detected
+Scene 1  Red flag, 3 languages        PASS ✅  (EN 252.9 s · ES 179.5 s · FR 176.9 s)
+Scene 2  Image triage (SurgWound GT)  Fix in v21 (max_new_tokens 300→450, JSON now complete)
+Scene 3  Audio analysis (SPRSound)    3 recordings processed — v21 adds quality filter
+Scene 4  Multilingual auto-detect     3 languages ✅ (ES yellow · FR red · TL red)
 ```
+
+v19 confirms the complete trimodal pipeline runs to completion on CPU with no GPU, no cloud
+API, and no internet after setup. Inference latencies (CPU): ~180–250 s per text turn,
+~320 s per image, ~170 s per audio file.
 
 ---
 
