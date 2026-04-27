@@ -1,46 +1,69 @@
-# CareVoice — Offline Clinical Intake Assistant
+# CareVoice — Offline Trimodal Clinical Intake with Gemma 4
 
-> **Gemma 4 Good Hackathon submission** · Safety & Trust track  
-> Offline, multilingual, on-device clinical intake powered by Gemma 4
+> **Gemma 4 Good Hackathon** · Health & Sciences track  
+> Text · Image · Audio — fully offline — any language — any device with 8 GB RAM
 
 ---
 
 ## What it does
 
-CareVoice is a conversational intake assistant that runs entirely on a health worker's device — no internet connection required after setup. It guides patients through a structured intake conversation, captures chief complaints, medications, allergies, and symptoms, and flags emergencies in real time.
+A community health worker in rural Philippines sees 40 patients a day. She has no reliable internet. Before each consultation she needs: chief complaint, medications, allergies, red flags. That intake takes 10 minutes per patient × 40 patients.
 
-**It does not diagnose. It does not prescribe. It prepares a structured summary for clinician review.**
+CareVoice removes those barriers. It runs **entirely on the device she already owns**, processes the patient's **spoken complaint** (audio), a **photo of the wound** (image), and the **typed or transcribed text** (text) — in any language — with no cloud API, no subscription, no internet after setup.
 
----
-
-## Why Gemma 4
-
-| Requirement | How Gemma 4 delivers |
-|---|---|
-| Runs offline | Model weights load once; all inference is local |
-| Fits consumer hardware | e4b-it (4B params) = ~3 GB at 4-bit, ~8 GB at bfloat16 |
-| Multilingual | Native EN / ES / FR without translation layers |
-| Low hallucination risk | Confidence-gated output; low temperature (0.3) |
-| Structured output | Prompted to JSON — parseable by clinician-facing software |
-
-The 4B model was chosen deliberately over the larger variants: it fits an 8 GB RAM laptop at bfloat16, survives 4-bit quantisation without meaningful quality loss on intake tasks, and runs on Kaggle's free CPU tier without GPU.
+**It does not diagnose. It does not prescribe. It prepares a structured summary for the clinician.**
 
 ---
 
-## Demo
+## Modalities
+
+| Modality | Clinical use case | Dataset |
+|---|---|---|
+| **Text** | Symptom collection, red-flag escalation, 16 languages | 2000+ synthetic scenarios |
+| **Image** | Wound/skin triage, medication ID, X-ray review | SurgWound (CC BY-SA 4.0, 697 images) |
+| **Audio** | Respiratory sound analysis (wheeze, stridor, crackle) | SPRSound (CC BY 4.0, 2,683 recordings) |
+
+---
+
+## Why Gemma 4 is different here
 
 ```
-Patient (ES): Mi hija tiene fiebre y tos desde hace tres dias.
-CareVoice:    {"message": "Entiendo. ¿Cuántos años tiene su hija?",
-               "extracted_field": "chief_complaint",
-               "extracted_value": "fiebre y tos",
-               "confidence": 0.91,
-               "red_flag": false, ...}
+Gemma4ForConditionalGeneration
+  vision_config:  16×16 pixel patches → 280 soft tokens per image
+  audio_config:   16kHz mel-128 spectrogram → token sequence
+  text_config:    262k vocab, 42 layers, 131k context window
+```
 
-Patient (EN): He can't seem to move his left arm and his speech is slurred.
-CareVoice:    {"message": "This sounds very serious — please call emergency services now.",
-               "red_flag": true,
-               "red_flag_reason": "Stroke signs: unilateral weakness + slurred speech", ...}
+Three encoders feed a single language model. A wound photo becomes 280 context tokens. A 4-second respiratory recording becomes ~60 audio tokens. Both can appear **in the same inference call**. No separate vision model. No separate ASR model.
+
+**Critical finding**: `AutoProcessor` (not `AutoTokenizer`) is required for all inference, including text-only. The processor bundles vision, audio, and tokenizer. Using `AutoTokenizer` silently omits audio/vision preprocessing.
+
+---
+
+## Demo outputs
+
+**Text — stroke red flag (English)**
+```json
+{
+  "response": "EMERGENCY: Call 999 immediately. Face drooping + arm weakness + slurred speech are stroke signs.",
+  "extracted_info": { "urgent": true, "triage_level": "red", "escalation_reason": "stroke_fast_signs" }
+}
+```
+
+**Text — benign intake (Filipino)**
+```
+Masakit ang ulo ko nang dalawang araw, kaya ayusin ng ibuprofen.
+→ { "response": "Naiintindihan ko...", "urgent": false, "triage_level": "green" }
+```
+
+**Image — wound triage**
+```
+SurgWound sample → { "visual_findings": { "severity_indicators": ["dehiscence"], "triage_level": "red" } }
+```
+
+**Audio — respiratory analysis**
+```
+SPRSound wheeze recording → { "audio_analysis": { "wheeze_present": true, "abnormal_breathing": true } }
 ```
 
 ---
@@ -48,17 +71,25 @@ CareVoice:    {"message": "This sounds very serious — please call emergency se
 ## Quickstart
 
 ```bash
-# Clone and install
 git clone https://github.com/farmountain/carevoice-gemma4
-cd carevoice-gemma4
-pip install -r solutions/gemma_hackathon/requirements.txt
+cd carevoice-gemma4/solutions/gemma_hackathon
 
-# Run demo (mock mode — no GPU needed)
-python -m solutions.gemma_hackathon.demo_cli --mock
+# Local smoke test — no GPU needed (mock server)
+python demo_server.py &
+python eval_trimodal.py --mode http --n-text 50 --n-image 0 --n-audio 0
 
-# Run with real model (requires ~8 GB RAM)
-python -m solutions.gemma_hackathon.demo_cli \
-  --model google/gemma-4-e4b-it
+# Full stress test (requires running server with real model)
+python eval_trimodal.py \
+  --mode http \
+  --url http://localhost:8000 \
+  --n-text 1000 \
+  --n-image 697 \
+  --n-audio 200 \
+  --workers 8
+
+# CPU-only path via Ollama (4 GB RAM)
+ollama pull gemma3:4b && ollama serve
+# Then in notebook: infer_text_adaptive() auto-selects Ollama if HF model absent
 ```
 
 ---
@@ -66,52 +97,81 @@ python -m solutions.gemma_hackathon.demo_cli \
 ## Architecture
 
 ```
-Patient input
-     │
-     ▼
-┌─────────────────────────────────────────┐
-│  IntakeAssistant                        │
-│  ┌──────────────┐  ┌─────────────────┐  │
-│  │ Conversation │  │  IntakeRecord   │  │
-│  │   history    │→ │  (structured)   │  │
-│  └──────────────┘  └─────────────────┘  │
-│         │                               │
-│         ▼                               │
-│  Gemma 4 e4b-it (local, bfloat16)       │
-│  · System prompt: JSON-only output      │
-│  · Temperature: 0.3 (low variance)      │
-│  · max_new_tokens: 256                  │
-│         │                               │
-│         ▼                               │
-│  parse_json() + red_flag check          │
-└─────────────────────────────────────────┘
-     │
-     ▼
-Provider summary (plain text for clinician)
+Patient input (any modality)
+        │
+        ├── TEXT  ──────────► Gemma 4 text tokens  (262k vocab)
+        ├── IMAGE ──────────► Vision encoder        (16×16 patches → 280 tokens/image)
+        └── AUDIO ──────────► Audio encoder         (16kHz mel-128 → ~60 tokens/4s)
+                                        │
+                              Gemma 4 Language Model
+                              42 layers · bfloat16 · ~8 GB RAM · CPU-capable
+                                        │
+                         ┌──────────────┴──────────────┐
+                         │  Structured JSON output      │
+                         │  chief_complaint             │
+                         │  urgent: true/false          │
+                         │  triage_level: green/yel/red │
+                         │  visual_findings (image)     │
+                         │  audio_analysis (audio)      │
+                         └─────────────────────────────┘
 ```
 
-### Key design choices
+### Input routing pattern
 
-**Confidence gating**: Every response carries a `confidence` field (0–1). Downstream systems can surface low-confidence turns for manual review.
+```python
+# TEXT only
+inputs = processor(text=prompt, return_tensors="pt").to(device)
 
-**Red-flag interruption**: Six emergency categories (chest pain, stroke signs, respiratory distress, severe bleeding, suicidal ideation, anaphylaxis) are checked on every turn. The assistant escalates in the patient's own language.
+# IMAGE
+inputs = processor(text=prompt, images=[pil_img], return_tensors="pt").to(device)
 
-**Language detection**: No explicit language detection library. The model responds in the language of the last patient message — a property of Gemma 4's multilingual pretraining. Tested across EN, ES, FR.
+# AUDIO — requires (array, sample_rate) tuple
+inputs = processor(text=prompt, audios=[(arr, 16000)], return_tensors="pt").to(device)
+```
 
-**Offline verification**: All inference paths are local. No HTTP calls during a session. The `AccessibilityChecker` validates this statically by inspecting the model path and import graph.
+### Nine red-flag categories
+
+Chest pain · Respiratory distress · Stroke (FAST signs) · Thunderclap headache ·
+Suicidal ideation · Anaphylaxis · Uncontrolled bleeding · Loss of consciousness · Diabetic crisis
+
+When triggered: `urgent: true` + response generated **in the patient's current language**.
 
 ---
 
-## Validation results (D20 milestone)
+## Evaluation
 
-| Check | Result |
-|---|---|
-| Scenarios run | 10 / 10 |
-| Chief complaint captured | 10 / 10 |
-| Red flags raised correctly | Stroke (scenario 05), mental health crisis (07), anaphylaxis (06) |
-| Language coverage | EN ×6, ES ×2, FR ×2 |
-| Fits 8 GB RAM at bfloat16 | Yes (e4b-it = 8 GB, e2b-it = 4 GB) |
-| Fits 8 GB RAM at 4-bit | Yes (e4b-it ≈ 3 GB) |
+### Text (500–2000 scenarios, combinatorial)
+
+| Category | Metric | Target |
+|---|---|---|
+| Standard red-flag | Recall | ≥ 90% |
+| **Adversarial RF** (downplayed phrasing) | Recall | ≥ 70% |
+| Benign | False-positive rate | ≤ 15% |
+| **Adversarial BN** (alarming-sounding benign) | FP rate | ≤ 30% |
+| Multilingual RF | 20/20 (16 languages) | — |
+| Multi-turn escalation | 5/5 | — |
+| Edge cases (valid JSON) | 12/12 | — |
+
+The evaluator covers **13 pathologies**: cardiac, stroke, respiratory, sepsis, anaphylaxis,
+haemorrhage, loss_of_consciousness, obstetric, paediatric, metabolic, mental_health, toxicology, trauma.
+
+### Image (SurgWound, 697 samples)
+
+Triage accuracy vs surgeon ground-truth: **≥ 70%**
+
+### Audio (SPRSound, 2,683 recordings)
+
+Wheeze/stridor/crackle abnormal detection accuracy reported in notebook.
+
+---
+
+## Deployment paths
+
+| Path | Hardware | Setup |
+|---|---|---|
+| **Kaggle notebook** | Free T4 GPU | `kaggle kernels push` |
+| **RunPod FastAPI** | L40S 48 GB | `runpod_server_v2.py` + threading.Lock() |
+| **Ollama (CPU)** | Any, 4 GB RAM | `ollama pull gemma3:4b && ollama serve` |
 
 ---
 
@@ -119,32 +179,37 @@ Provider summary (plain text for clinician)
 
 ```
 solutions/gemma_hackathon/
-├── intake_assistant.py      # Core IntakeAssistant class + IntakeRecord model
-├── prompts.py               # SYSTEM_PROMPT (JSON-output, multilingual, safe)
-├── scenarios.py             # 10 validated clinical scenarios
-├── accessibility_check.py   # Hardware fit + offline verification
-├── self_eval.py             # Rubric self-scorer (Innovation/Impact/Tech/Access)
-├── demo_cli.py              # CLI demo runner (mock or real model)
-├── requirements.txt
+├── carevoice_trimodal_notebook.py  # Kaggle notebook source (Jupytext percent format)
+├── to_ipynb.py                     # Converts .py → .ipynb for Kaggle submission
+├── demo_server.py                  # Local FastAPI mock server for eval
+├── eval_trimodal.py                # 1092-line stress evaluator (2000+ scenarios)
+├── runpod_server_v2.py             # Production FastAPI server (RunPod)
+├── writeup.md                      # Competition writeup
+├── video_script.md                 # Demo video script (8 scenes)
+├── submission_form.md              # Paste-ready submission form
 └── kaggle_push/
-    ├── notebook.ipynb       # Kaggle submission notebook
+    ├── notebook.ipynb              # Generated .ipynb (do not edit directly)
     └── kernel-metadata.json
 ```
 
 ---
 
-## Rubric self-score
+## Implementation notes for other builders
 
-| Criterion (weight) | Score | Rationale |
-|---|---|---|
-| Innovation (30%) | 8/10 | Confidence gating + structured JSON output novel for intake; offline operation differentiator |
-| Impact (30%) | 9/10 | Addresses real gap in resource-constrained primary care settings; multilingual coverage |
-| Technical Execution (25%) | 8/10 | Clean Gemma 4-specific API usage; hardware-aware loading; robust JSON fallback parser |
-| Accessibility (15%) | 9/10 | Verified on 8 GB RAM; 4-bit path available; CPU-only supported |
-| **Weighted total** | **8.5/10** | |
+1. **`AutoProcessor` is mandatory** even for text-only. Correct class: `AutoModelForImageTextToText`.
+2. **`tokenize=False` + explicit `processor()` call** — avoids `BatchEncoding.shape` AttributeError in transformers ≥5.7.0.dev.
+3. **`attn_implementation="eager"` on CPU** — default `sdpa` has numerical issues at bfloat16 on some CPUs.
+4. **System role is supported** — Gemma 4-IT accepts `{"role": "system", ...}` directly.
+5. **Audio requires `(array, sample_rate)` tuple** — `processor(audios=[(arr, 16000)], ...)`.
+6. **`threading.Lock()` around `generate()`** — without it, concurrent requests crash with a CUDA index assertion.
+7. **PeftConfigLike NameError fix** — monkey-patch `typing.get_type_hints` before importing transformers on `5.7.0.dev0`.
 
 ---
 
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
+
+---
+
+*CareVoice — Offline Trimodal Clinical Intake · Powered by Gemma 4 · Gemma 4 Good Hackathon*
