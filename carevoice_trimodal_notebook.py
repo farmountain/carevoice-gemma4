@@ -93,20 +93,33 @@ if not MODEL_PATH:
     )
 print(f"Model path : {MODEL_PATH}")
 
-# Avoid P100 (sm_60) which has issues with some PyTorch 2.x attention ops
-USE_GPU = torch.cuda.is_available() and torch.cuda.get_device_capability(0)[0] >= 7
-DEVICE  = "cuda" if USE_GPU else "cpu"
-print(f"Device     : {DEVICE}")
+# GPU selection:
+#  sm_75+ (T4, A100…)  → CUDA + bfloat16 (native hardware support)
+#  sm_60   (P100)      → CUDA + float16  (native fp16; bfloat16 emulated on Pascal)
+#  no CUDA / sm < 6    → CPU + bfloat16  (safe on all CPUs, slower)
+USE_GPU = False
+MODEL_DTYPE = torch.bfloat16   # default for CPU
+if torch.cuda.is_available():
+    _sm = torch.cuda.get_device_capability(0)
+    _sm_int = _sm[0] * 10 + _sm[1]
+    if _sm_int >= 60:          # P100 (sm_60) and above
+        USE_GPU = True
+        MODEL_DTYPE = torch.bfloat16 if _sm_int >= 75 else torch.float16
+        print(f"GPU sm_{_sm_int}: {'bfloat16' if _sm_int >= 75 else 'float16 (P100 compat)'}")
+    else:
+        print(f"GPU sm_{_sm_int} < sm_60: falling back to CPU")
+DEVICE = "cuda" if USE_GPU else "cpu"
+print(f"Device     : {DEVICE}  |  dtype: {MODEL_DTYPE}")
 
 print("Loading processor…")
 processor = AutoProcessor.from_pretrained(
     MODEL_PATH, local_files_only=True, padding_side="left"
 )
 
-print("Loading model in bfloat16 (~30 s on GPU, ~90 s on CPU)…")
+print(f"Loading model in {MODEL_DTYPE} (~15 s GPU, ~90 s CPU)…")
 model = AutoModelForImageTextToText.from_pretrained(
     MODEL_PATH,
-    torch_dtype=torch.bfloat16,
+    torch_dtype=MODEL_DTYPE,
     device_map="auto" if USE_GPU else "cpu",
     local_files_only=True,
     attn_implementation="eager",
