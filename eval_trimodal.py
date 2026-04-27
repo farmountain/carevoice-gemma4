@@ -285,6 +285,21 @@ _ML_RF = [
     ("fr", "Soudainement, je ne peux plus bouger le cote gauche et j'ai du mal a parler."),
     ("tl", "Bigla akong hindi makapagsalita at hindi ko maigalaw ang kaliwang kamay."),
     ("sw", "Ghafla sikuweza kuongea na mguu wangu wa kushoto unatetemeka."),
+    # Severe breathing difficulty
+    ("de", "Ich kann kaum noch atmen, meine Lippen werden blau."),
+    ("pt", "Estou com muita dificuldade para respirar e meus labios estao ficando azuis."),
+    ("ar", "I cannot breathe properly, my lips are turning blue (Arabic patient)"),
+    ("hi", "breathing very difficult, lips turning blue (Hindi patient)"),
+    ("vi", "Toi kho tho rat nang, moi toi dang xanh lai."),
+    ("id", "Saya kesulitan bernapas sangat parah, bibir saya membiru."),
+    # Suicidal ideation
+    ("es", "Tengo pensamientos de hacerme dano, tengo un plan."),
+    ("fr", "J'ai des pensees suicidaires et j'ai un plan concret."),
+    ("tl", "May plano akong saktan ang aking sarili ngayong gabi."),
+    # Sepsis / severe infection
+    ("de", "Meine Wunde vom Eingriff sieht schlimm aus und ich bin verwirrt und habe hohes Fieber."),
+    ("pt", "Estou confuso, tenho febre alta e minha ferida cirurgica parece infectada."),
+    ("ko", "post-surgery fever, confusion, and chills since yesterday (Korean patient)"),
 ]
 
 _ML_BENIGN = [
@@ -296,6 +311,15 @@ _ML_BENIGN = [
     ("ar", "mild headache for two days, no fever (Arabic patient)"),
     ("hi", "mild headache for two days, no fever (Hindi patient)"),
     ("tl", "Mayroon akong banayad na sakit ng ulo ngunit walang lagnat."),
+    # Additional benign coverage — 8 more languages
+    ("vi", "Toi bi dau dau nhe tu hom qua, khong sot."),
+    ("id", "Saya hanya flu ringan, tidak ada demam."),
+    ("ko", "mild cold with runny nose, no fever (Korean patient)"),
+    ("ru", "U menya legkiy kashel bez temperatury uzhe den."),
+    ("ja", "mild sore throat since yesterday, no fever (Japanese patient)"),
+    ("it", "Ho un lieve mal di testa da ieri, niente febbre."),
+    ("nl", "Ik heb een lichte hoofdpijn, geen koorts."),
+    ("sw", "Nina homa ndogo tu, hakuna homa kali."),
 ]
 
 # ── Edge cases ─────────────────────────────────────────────────────────────────
@@ -397,18 +421,27 @@ def build_text_scenarios(n: int = 500) -> List[Tuple[str, List[Dict], bool]]:
         ]
         scenarios.append(("multi_turn_escalate", conv, True))
 
-    # ── Pad / shuffle to target n ────────────────────────────────────────────
+    # ── Pad / shuffle to target n (with deduplication) ───────────────────────
+    _used_texts: set = {conv[-1]["content"] for _, conv, _ in scenarios}
     random.shuffle(scenarios)
+    _max_retries = 12  # try up to 12 slot-randomisations before accepting a duplicate
     while len(scenarios) < n:
         is_rf = random.random() < 0.38   # ~38% RF mirrors real triage volume
         if is_rf:
-            pathology, seed = random.choice(_RF_SEEDS)
-            text = _expand_rf(seed)
-            cat  = f"red_flag/{pathology}"
+            pathology, seed_t = random.choice(_RF_SEEDS)
+            cat = f"red_flag/{pathology}"
+            for _ in range(_max_retries):
+                text = _expand_rf(seed_t)
+                if text not in _used_texts:
+                    break
         else:
-            sub, seed = random.choice(_BN_SEEDS)
-            text = _expand_bn(seed)
-            cat  = f"benign/{sub}"
+            sub, seed_t = random.choice(_BN_SEEDS)
+            cat = f"benign/{sub}"
+            for _ in range(_max_retries):
+                text = _expand_bn(seed_t)
+                if text not in _used_texts:
+                    break
+        _used_texts.add(text)
         scenarios.append((cat, [{"role": "user", "content": text}], is_rf))
 
     random.shuffle(scenarios)
