@@ -406,7 +406,7 @@ for sample in urgency_samples[:N_IMG]:
     t0      = time.time()
     result  = infer_image(pil_img, "Patient submitted wound photo for remote triage.")
     lat     = time.time() - t0
-    pred    = result.get("extracted_info", {}).get("triage_level", "unknown")
+    pred    = result.get("extracted_info", {}).get("triage_level") or "none"
     match   = (pred == gt)
     correct += int(match)
     total   += 1
