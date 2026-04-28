@@ -1,0 +1,20 @@
+{
+  "id": "farmountain/carevoice-qlora-finetune",
+  "title": "CareVoice QLoRA Fine-tuning — SurgWound + SPRSound",
+  "code_file": "notebook.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "dataset_sources": [
+    "xuxuxuxuxu/surgwound",
+    "farmountain/sprsound"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": [
+    "google/gemma-4/transformers/gemma-4-e4b-it/1"
+  ]
+}
