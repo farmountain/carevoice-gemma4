@@ -520,13 +520,18 @@ for af in ann_files:
         pass
 
 # Prefer usable quality: Normal and Abnormal over Poor Quality
-# Balanced sample: aim for at least 1 Normal + 1 Abnormal
+# Map SPRSound-specific labels to quality buckets:
+#   CAS = Continuous Adventitious Sounds (wheeze/rhonchus)
+#   DAS = Discontinuous Adventitious Sounds (crackle)
+#   These are clinically Abnormal sounds — treat as Abnormal
+_ABNORMAL_LABELS = {"Abnormal", "CAS", "DAS", "Wheeze", "Crackle", "Rhonchi", "Stridor",
+                    "wheeze", "crackle", "rhonchi", "stridor"}
 _by_quality = {"Normal": [], "Abnormal": [], "other": []}
 for s in _all_labeled:
     gt = s["gt_label"]
     if gt == "Normal":
         _by_quality["Normal"].append(s)
-    elif gt == "Abnormal":
+    elif gt in _ABNORMAL_LABELS or any(lbl in gt for lbl in _ABNORMAL_LABELS):
         _by_quality["Abnormal"].append(s)
     elif "Poor" not in gt:
         _by_quality["other"].append(s)
