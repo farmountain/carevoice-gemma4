@@ -9,10 +9,21 @@
 # Load in inference notebook: `PeftModel.from_pretrained(base_model, adapter_path)`
 
 # %% [markdown]
-# ## 0 — Install dependencies
+# ## 0 — Install dependencies (transformers from git for Gemma 4 support)
 
 # %%
-# !pip install -q peft==0.14.0 trl==0.16.0 bitsandbytes accelerate datasets
+import subprocess, sys
+
+# Gemma 4 requires transformers 5.x dev build
+subprocess.run([sys.executable, "-m", "pip", "install", "-q",
+    "git+https://github.com/huggingface/transformers.git",
+    "peft>=0.14.0", "trl>=0.16.0", "bitsandbytes>=0.43.0",
+    "accelerate>=0.34.0", "datasets>=2.20.0",
+], check=True)
+
+import importlib, transformers as _tf
+importlib.reload(_tf)
+print("transformers:", _tf.__version__)
 
 # %% [markdown]
 # ## 1 — Imports & constants
@@ -69,15 +80,24 @@ torch.manual_seed(SEED)
 
 print("CUDA available:", torch.cuda.is_available())
 if torch.cuda.is_available():
-    print("GPU:", torch.cuda.get_device_name(0))
-    print("VRAM:", round(torch.cuda.get_device_properties(0).total_memory / 1e9, 1), "GB")
+    sm = torch.cuda.get_device_capability(0)
+    sm_int = sm[0] * 10 + sm[1]
+    print(f"GPU : {torch.cuda.get_device_name(0)}  (sm_{sm_int})")
+    print(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+    if sm_int < 70:
+        raise RuntimeError(
+            f"GPU sm_{sm_int} (P100) is incompatible with PyTorch 2.x QLoRA. "
+            "Re-run this kernel to get a T4 (sm_75) or better."
+        )
+DEVICE = "cuda" if (torch.cuda.is_available() and
+                    torch.cuda.get_device_capability(0)[0] >= 7) else "cpu"
+print("Device:", DEVICE)
 
 # %% [markdown]
 # ## 2 — Load model in 4-bit (QLoRA)
 
 # %%
-from transformers import AutoProcessor, BitsAndBytesConfig
-from transformers import Gemma4ForConditionalGeneration
+from transformers import AutoProcessor, AutoModelForImageTextToText, BitsAndBytesConfig
 
 print("Loading processor...")
 processor = AutoProcessor.from_pretrained(GEMMA_MODEL_PATH)
@@ -89,7 +109,7 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_compute_dtype=torch.bfloat16,
     bnb_4bit_use_double_quant=True,
 )
-model = Gemma4ForConditionalGeneration.from_pretrained(
+model = AutoModelForImageTextToText.from_pretrained(
     GEMMA_MODEL_PATH,
     quantization_config=bnb_config,
     device_map="auto",
@@ -525,7 +545,7 @@ for f in sorted(Path(ADAPTER_OUT).glob("*")):
 from peft import PeftModel
 
 print("Loading adapter for quick validation...")
-model_eval = Gemma4ForConditionalGeneration.from_pretrained(
+model_eval = AutoModelForImageTextToText.from_pretrained(
     GEMMA_MODEL_PATH, quantization_config=bnb_config,
     device_map="auto", torch_dtype=torch.bfloat16,
 )
