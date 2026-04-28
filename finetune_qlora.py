@@ -45,9 +45,23 @@ MAX_IMG_VAL     = 90         # ~30 per urgency level
 MAX_AUD_TRAIN   = 200        # ~100 Normal + 100 Abnormal
 MAX_AUD_VAL     = 40
 
-# ── SPRSound dataset path ─────────────────────────────────────────────────────
-SPRSOUND_DIR = Path("/kaggle/input/sprsound")
-AUDIO_SR     = 16000
+# ── SPRSound dataset path (auto-clone if not present) ────────────────────────
+import subprocess as _sp
+_SPRSOUND_CANDIDATES = [
+    Path("/kaggle/input/sprsound"),
+    Path("/workspace/datasets/sprsound"),
+    Path("/tmp/sprsound"),
+]
+SPRSOUND_DIR = next((p for p in _SPRSOUND_CANDIDATES if p.exists()), None)
+if SPRSOUND_DIR is None:
+    SPRSOUND_DIR = Path("/kaggle/working/sprsound")
+    print("Cloning SPRSound (CC BY 4.0, ~4.4 GB) — 3-5 min...")
+    _sp.run(
+        f"git clone --depth 1 https://github.com/SJTU-YONGFU-RESEARCH-GRP/SPRSound {SPRSOUND_DIR}",
+        shell=True, check=True,
+    )
+print(f"SPRSound dir: {SPRSOUND_DIR}")
+AUDIO_SR = 16000
 
 random.seed(SEED)
 np.random.seed(SEED)
