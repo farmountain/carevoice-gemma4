@@ -1,5 +1,5 @@
 {
-  "id": "farmountain/carevoice-qlora-finetune",
+  "id": "farmountain/carevoice-qlora-fine-tuning-surgwound-sprsound",
   "title": "CareVoice QLoRA Fine-tuning — SurgWound + SPRSound",
   "code_file": "notebook.ipynb",
   "language": "python",
