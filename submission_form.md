@@ -128,14 +128,30 @@ Scene 3  Audio respiratory analysis (SPRSound)   3 Normal recordings ✅
 Scene 4  Multilingual auto-detect                PASS ✅  (confirmed same)
 ```
 
-### Kaggle Notebook Scene Summary (v22 — image + audio diversity fix, pushed 2026-04-28)
+### Kaggle Notebook Scene Summary (v22 — actual kernel output, 2026-04-28, completed 08:28)
+
+```
+Scene 1  Red flag + multilingual (3 languages)   PASS ✅
+Scene 2  Image triage accuracy (SurgWound GT)    33% (1/3) — calibration shifted
+           green→yellow ❌ (over-triage) | yellow→yellow ✅ | red→yellow ❌ (under-triage)
+           yellow FIXED by dehiscence rules; green now over-sensitive to mild erythema;
+           red still under-classified (visual ambiguity vs full clinical GT context)
+           Latencies: 360.1 s / 369.1 s / 355.5 s (CPU)
+Scene 3  Audio respiratory analysis (SPRSound)   3 diverse patients ✅ (diversity fix worked)
+           Patients: 40512331 (Normal) · 40888395 (Normal) · 41092434 (CAS/wheeze)
+           Issue: CAS fell into 'other' bucket → triage_level=null for CAS sample
+           Fix: v23 maps CAS/DAS/Wheeze to Abnormal bucket
+           Latencies: 176.3 s / 175.1 s / 165.4 s (CPU)
+Scene 4  Multilingual auto-detect                PASS ✅
+```
+
+### Kaggle Notebook Scene Summary (v23 — CAS/DAS Abnormal label fix, pushed 2026-04-28)
 
 ```
 Scene 1  Red flag + multilingual (3 languages)   PASS ✅  (expected)
-Scene 2  Image triage accuracy (SurgWound GT)    [pending — v22 adds dehiscence red rule +
-                                                  CRITICAL RULE for open wound edges]
-Scene 3  Audio respiratory analysis              [pending — v22 adds patient-diversity
-                                                  selection: ≤1 sample per patient]
+Scene 2  Image triage accuracy (SurgWound GT)    [pending — same image rules as v22]
+Scene 3  Audio respiratory analysis              [pending — CAS/DAS/Wheeze now map to
+                                                  Abnormal bucket → real abnormal sample]
 Scene 4  Multilingual auto-detect                PASS ✅  (expected)
 ```
 
@@ -147,7 +163,8 @@ Scene 4  Multilingual auto-detect                PASS ✅  (expected)
 - [x] Kaggle notebook v20 ran to completion (06:04) — image accuracy 33% (1/3), audio 3/3 Normal ✅
 - [x] Kaggle notebook v21 ran to completion (06:06) — audio scan expanded; results identical to v20
 - [x] Scene metrics captured from v20/v21 kernel output into this document
-- [ ] Kaggle notebook v22 ran to completion (fix: dehiscence red rule + audio patient diversity)
+- [x] Kaggle notebook v22 ran to completion (08:28) — image 33% yellow fixed; audio 3 diverse patients; CAS→null bug found
+- [ ] Kaggle notebook v23 ran to completion (fix: CAS/DAS/Wheeze mapped to Abnormal bucket)
 - [ ] GitHub repo public: https://github.com/farmountain/carevoice-gemma4
 - [ ] README.md committed (trimodal version)
 - [ ] writeup.md committed (trimodal version)
