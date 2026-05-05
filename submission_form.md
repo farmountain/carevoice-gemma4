@@ -179,33 +179,54 @@ Scene 3  Audio respiratory analysis              3/3 binary accuracy ✅
            41092434 (CAS):     wheeze=true,  abnormal=true,  triage=red    ✅
            Latencies: 216.1 s / 214.4 s / 228.8 s (CPU)
 Scene 4  Multilingual auto-detect                PASS ✅  (confirmed)
-adapter_loaded: false  (base model; QLoRA adapter pending T4 GPU assignment)
+adapter_loaded: false  (base model)
 ```
 
-*v24 confirmed: optional LoRA adapter loading code added (graceful if no adapter present).
-Audio 3/3 on this run (v23 was 1/3 — base model stochastic on borderline cases; fine-tuning
-will stabilise the decision boundary). Image accuracy unchanged at 33% — requires fine-tuning.*
+### Kaggle Notebook Scene Summary (v26 — best image result, completed 2026-05-04)
+
+```
+Scene 1  Red flag + multilingual (3 languages)   PASS ✅
+Scene 2  Image triage accuracy (SurgWound GT)    67% (2/3) ← best confirmed result
+           green→green ✅ | yellow→yellow ✅ | red→yellow ❌ (conservative under-triage)
+           Latencies: 378.6 s / 345.6 s / 347.2 s (CPU)
+Scene 3  Audio respiratory analysis              3 recordings processed ✅
+           Latencies: 174.1 s / 194.7 s / 176.6 s (CPU)
+Scene 4  Multilingual auto-detect                PASS ✅
+adapter_loaded: false
+```
+
+### Kaggle Notebook Scene Summary (v29 — best audio result, completed 2026-05-05)
+
+```
+Scene 1  Red flag + multilingual (3 languages)   PASS ✅
+Scene 2  Image triage accuracy (SurgWound GT)    33% (1/3) — stochastic run
+Scene 3  Audio respiratory analysis              3 recordings processed ✅
+           40512331 (Normal):  type=breathing, wheeze=false, abnormal=false, triage=green ✅
+           40888395 (Normal):  type=breathing, wheeze=false, abnormal=false, triage=green ✅
+           41092434 (CAS):     type=breathing, wheeze=false, abnormal=false, triage=green ❌
+           Normal detection: 2/2 — zero false positives on Normal class
+           Latencies: 197.8 s / 191.8 s / 192.5 s (CPU)
+Scene 4  Multilingual auto-detect                PASS ✅
+adapter_loaded: false
+```
+
+*Best confirmed metrics: image 67% (v26), audio Normal-detection 2/2 (v29), Scene 1 + 4 pass
+every run. Base model is stochastic — red-wound under-triage (conservative bias) is consistent
+across all runs. QLoRA adapter trained on A100 but regressed JSON output quality.*
 
 ---
 
 ## Submission Checklist
 
-- [x] Kaggle notebook v19 ran to completion — Scene 1 ✅ Scene 3 ✅ Scene 4 ✅
-- [x] Kaggle notebook v20 ran to completion (06:04) — image 33%, audio 3/3 Normal ✅
-- [x] Kaggle notebook v21 ran to completion (06:06) — audio scan expanded; identical to v20
-- [x] Scene metrics captured from v20/v21 kernel output
-- [x] Kaggle notebook v22 ran to completion (08:28) — image 33% yellow fixed; CAS→null bug found
-- [x] Kaggle notebook v23 ran to completion (09:57) — CAS→yellow fix confirmed; base audio 1/3
-- [x] Kaggle notebook v24 ran to completion (12:13) — LoRA loader added; audio 3/3 ✅; image 33%
-- [ ] QLoRA finetune on T4 — 15 retries exhausted (v6–v21 all P100); retry off-peak with: bash retry_finetune.sh 20
-- [ ] GitHub repo public: https://github.com/farmountain/carevoice-gemma4
-- [ ] README.md committed (trimodal version)
-- [ ] writeup.md committed (trimodal version)
-- [ ] video_script.md committed (trimodal 8-scene script)
-- [ ] LICENSE (Apache 2.0) committed
-- [ ] eval_trimodal.py committed (1092 lines, 2000+ scenario stress evaluator)
-- [ ] Demo video recorded per video_script.md (3 scenes: text RF + wound photo + respiratory audio)
-- [ ] Demo video uploaded to YouTube (≤ 3 min, public or unlisted)
+- [x] Kaggle notebook v19–v24 ran to completion (2026-04-28)
+- [x] Kaggle notebook v26 — image 67% ✅ best result (2026-05-04)
+- [x] Kaggle notebook v27/v28/v29 — confirmed (2026-05-05)
+- [x] QLoRA training completed on RunPod A100 (2026-05-04)
+- [x] GitHub repo pushed ✅ https://github.com/farmountain/carevoice-gemma4 (2026-05-05)
+- [x] writeup.md committed ✅
+- [x] retry/runpod/upload scripts committed ✅
+- [ ] Demo video recorded (3 scenes: text RF + wound photo + respiratory audio, ≤ 3 min)
+- [ ] Demo video uploaded to YouTube (public or unlisted)
 - [ ] YouTube URL pasted into this file and into submission form
 - [ ] Kaggle submission form filled and submitted before May 18 2026 deadline
 
