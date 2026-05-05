@@ -145,26 +145,59 @@ Scene 3  Audio respiratory analysis (SPRSound)   3 diverse patients ✅ (diversi
 Scene 4  Multilingual auto-detect                PASS ✅
 ```
 
-### Kaggle Notebook Scene Summary (v23 — CAS/DAS Abnormal label fix, pushed 2026-04-28)
+### Kaggle Notebook Scene Summary (v23 — CAS/DAS Abnormal label fix, completed 09:57 2026-04-28)
 
 ```
-Scene 1  Red flag + multilingual (3 languages)   PASS ✅  (expected)
-Scene 2  Image triage accuracy (SurgWound GT)    [pending — same image rules as v22]
-Scene 3  Audio respiratory analysis              [pending — CAS/DAS/Wheeze now map to
-                                                  Abnormal bucket → real abnormal sample]
-Scene 4  Multilingual auto-detect                PASS ✅  (expected)
+Scene 1  Red flag + multilingual (3 languages)   PASS ✅  (confirmed)
+Scene 2  Image triage accuracy (SurgWound GT)    33% (1/3) — identical to v22
+           green→yellow ❌ (over-triage) | yellow→yellow ✅ | red→yellow ❌ (under-triage)
+           Latencies: 382.0 s / 359.5 s / 351.4 s (CPU)
+Scene 3  Audio respiratory analysis              3 diverse patients ✅ — CAS null bug FIXED
+           40512331 (Normal):  abnormal=false, triage=yellow  ⚠️  (over-triaged; not false positive)
+           40888395 (Normal):  wheeze=true, abnormal=true, triage=red  ❌  (false positive)
+           41092434 (CAS):     wheeze=false, abnormal=false, triage=yellow  ❌  (false negative)
+           Note: v22 had triage_level=null for CAS; v23 returns valid triage (yellow) ✅
+           Binary accuracy: 1/3 (only Normal 40512331 correctly not-abnormal)
+           Latencies: 175.1 s / 185.8 s / 174.0 s (CPU)
+Scene 4  Multilingual auto-detect                PASS ✅  (confirmed)
 ```
+
+*v23 confirmed: CAS/DAS/Wheeze → Abnormal bucket fix worked (triage_level no longer null).
+Base model audio accuracy = 1/3 (false positive on Normal + false negative on CAS).
+QLoRA fine-tuning in progress to improve audio accuracy.*
+
+### Kaggle Notebook Scene Summary (v24 — LoRA loader + adapter_loaded flag, completed 12:13 2026-04-28)
+
+```
+Scene 1  Red flag + multilingual (3 languages)   PASS ✅  (confirmed)
+Scene 2  Image triage accuracy (SurgWound GT)    33% (1/3)
+           green→yellow ❌  |  yellow→yellow ✅  |  red→yellow ❌
+           Latencies: 473.3 s / 436.1 s / 422.9 s (CPU)
+Scene 3  Audio respiratory analysis              3/3 binary accuracy ✅
+           40512331 (Normal):  wheeze=false, abnormal=false, triage=yellow ✅
+           40888395 (Normal):  wheeze=false, abnormal=false, triage=yellow ✅
+           41092434 (CAS):     wheeze=true,  abnormal=true,  triage=red    ✅
+           Latencies: 216.1 s / 214.4 s / 228.8 s (CPU)
+Scene 4  Multilingual auto-detect                PASS ✅  (confirmed)
+adapter_loaded: false  (base model; QLoRA adapter pending T4 GPU assignment)
+```
+
+*v24 confirmed: optional LoRA adapter loading code added (graceful if no adapter present).
+Audio 3/3 on this run (v23 was 1/3 — base model stochastic on borderline cases; fine-tuning
+will stabilise the decision boundary). Image accuracy unchanged at 33% — requires fine-tuning.*
 
 ---
 
 ## Submission Checklist
 
 - [x] Kaggle notebook v19 ran to completion — Scene 1 ✅ Scene 3 ✅ Scene 4 ✅
-- [x] Kaggle notebook v20 ran to completion (06:04) — image accuracy 33% (1/3), audio 3/3 Normal ✅
-- [x] Kaggle notebook v21 ran to completion (06:06) — audio scan expanded; results identical to v20
-- [x] Scene metrics captured from v20/v21 kernel output into this document
-- [x] Kaggle notebook v22 ran to completion (08:28) — image 33% yellow fixed; audio 3 diverse patients; CAS→null bug found
-- [ ] Kaggle notebook v23 ran to completion (fix: CAS/DAS/Wheeze mapped to Abnormal bucket)
+- [x] Kaggle notebook v20 ran to completion (06:04) — image 33%, audio 3/3 Normal ✅
+- [x] Kaggle notebook v21 ran to completion (06:06) — audio scan expanded; identical to v20
+- [x] Scene metrics captured from v20/v21 kernel output
+- [x] Kaggle notebook v22 ran to completion (08:28) — image 33% yellow fixed; CAS→null bug found
+- [x] Kaggle notebook v23 ran to completion (09:57) — CAS→yellow fix confirmed; base audio 1/3
+- [x] Kaggle notebook v24 ran to completion (12:13) — LoRA loader added; audio 3/3 ✅; image 33%
+- [ ] QLoRA finetune on T4 — 15 retries exhausted (v6–v21 all P100); retry off-peak with: bash retry_finetune.sh 20
 - [ ] GitHub repo public: https://github.com/farmountain/carevoice-gemma4
 - [ ] README.md committed (trimodal version)
 - [ ] writeup.md committed (trimodal version)

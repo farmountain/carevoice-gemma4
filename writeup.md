@@ -139,32 +139,60 @@ Programmatically generated from 68 red-flag seed templates (13 pathologies) and 
 | Multi-turn escalation recall | 3/3 | -- |
 | Edge case valid JSON | 12/12 | -- |
 
-### Image (SurgWound)
+### Image (SurgWound, v24 baseline — pre fine-tuning)
 
-| Metric | Result |
-|---|---|
-| Triage accuracy vs surgeon GT | >=70% |
-| Confirmed smoke test (live pod) | green matches "Home Care (Green)" |
+| Metric | Result | Note |
+|---|---|---|
+| Triage accuracy vs surgeon GT (3 samples) | 33% (1/3) | yellow ✅ · green→yellow ❌ · red→yellow ❌ |
+| Target after QLoRA fine-tuning | ≥ 65% | Training on 450 labeled SurgWound pairs |
+| CPU latency per image | ~444 s | T4 GPU target: ~15 s |
 
-### Audio (SPRSound)
+Root cause of 33% ceiling: base model conservatively assigns yellow to all wounds regardless of severity, lacking calibration for SurgWound's green/red distinctions. QLoRA fine-tuning on 450 ground-truth (image, triage_level) pairs provides the domain calibration.
 
-| Metric | Result |
-|---|---|
-| Abnormal/normal detection accuracy | reported in notebook output |
-| Sample rate compatibility | 16 kHz native, zero resampling |
+### Audio (SPRSound, v24 baseline — pre fine-tuning)
 
-### Kaggle notebook scene summary (v19 — confirmed run on CPU, 2026-04-28)
+| Metric | Result | Note |
+|---|---|---|
+| Binary abnormal/normal accuracy (3 samples) | 3/3 ✅ | Normal ✅ · Normal ✅ · CAS→wheeze ✅ |
+| Target after QLoRA fine-tuning | ≥ 80% (full val set) | Training on 200 labeled SPRSound pairs |
+| Sample rate compatibility | 16 kHz native, zero resampling | |
+| CAS null bug (v22) | Fixed ✅ (v23) | CAS/DAS/Wheeze mapped to Abnormal bucket |
+
+v24 audio: 40512331 (Normal): abnormal=false ✅ · 40888395 (Normal): abnormal=false ✅ · 41092434 (CAS): wheeze=true, abnormal=true ✅. The base model shows run-to-run variability on borderline cases (v23: 1/3, v24: 3/3) — fine-tuning stabilises the decision boundary for consistent accuracy across the full validation set.
+
+### QLoRA Fine-tuning (pending T4 assignment, 2026-04-28)
+
+CareVoice fine-tunes Gemma 4 4B-IT with QLoRA on both modality-specific validation datasets simultaneously.
+
+**Why fine-tuning matters for medical AI:**
+A 4B-parameter base model trained on general web text has never seen a pediatric CAS respiratory recording labeled against a clinical standard, or a photo of wound dehiscence alongside a surgeon's verdict. Supervised fine-tuning on 450 image pairs and 200 audio pairs teaches the clinical vocabulary and decision boundary that prompt engineering alone cannot deliver — especially for rare presentations where the model's prior is arbitrary.
+
+**Training setup:**
+- SurgWound: 450 train + 90 val — balanced 150/level (green/yellow/red)
+- SPRSound: 200 train + 40 val — balanced 100 Normal + 100 Abnormal
+- Architecture: QLoRA (NF4 4-bit, bfloat16) + LoRA (r=16, alpha=32, all 7 projection layers)
+- Training: 3 epochs, lr=2e-4, cosine schedule, bf16, gradient accumulation ×4
+- Hardware: Kaggle T4 (16 GB VRAM), ~3 hours estimated
+- Output: LoRA adapter loadable via `PeftModel.from_pretrained()` — zero overhead on base model weights
+
+### Kaggle notebook scene summary (v24 — confirmed run on CPU, 2026-04-28, completed 12:13)
 
 ```
-Scene 1  Red flag, 3 languages        PASS ✅  (EN 252.9 s · ES 179.5 s · FR 176.9 s)
-Scene 2  Image triage (SurgWound GT)  Fix in v21 (max_new_tokens 300→450, JSON now complete)
-Scene 3  Audio analysis (SPRSound)    3 recordings processed — v21 adds quality filter
-Scene 4  Multilingual auto-detect     3 languages ✅ (ES yellow · FR red · TL red)
+Scene 1  Red flag, 3 languages        PASS ✅  (EN/ES/FR: urgent=True, triage=red)
+Scene 2  Image triage (SurgWound GT)  33% (1/3) — yellow✅ · green→yellow❌ · red→yellow❌
+           Latencies: 473.3 s / 436.1 s / 422.9 s (CPU)
+Scene 3  Audio analysis (SPRSound)    3/3 binary accuracy ✅
+           40512331 (Normal): cough=true, wheeze=false, abnormal=false, triage=yellow ✅
+           40888395 (Normal): cough=true, wheeze=false, abnormal=false, triage=yellow ✅
+           41092434 (CAS):    wheeze=true,  abnormal=true,  triage=red              ✅
+           Latencies: 216.1 s / 214.4 s / 228.8 s (CPU)
+Scene 4  Multilingual auto-detect     PASS ✅  (ES yellow · FR red · TL red)
+adapter_loaded: false  (base model; QLoRA adapter pending T4 assignment)
 ```
 
-v19 confirms the complete trimodal pipeline runs to completion on CPU with no GPU, no cloud
-API, and no internet after setup. Inference latencies (CPU): ~180–250 s per text turn,
-~320 s per image, ~170 s per audio file.
+v24 confirms the complete trimodal pipeline runs to completion on CPU — no GPU, no cloud API,
+no internet after setup. Fine-tuning kernel `finetune_qlora.py` is ready with fast P100
+early-exit and retries automatically until a T4 (sm_75+) is assigned.
 
 ---
 

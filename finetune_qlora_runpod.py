@@ -1,3 +1,6 @@
+import os
+os.environ["TMPDIR"] = "/workspace/tmp"
+os.makedirs("/workspace/tmp", exist_ok=True)
 # %% [markdown]
 # # CareVoice — QLoRA Fine-tuning on SurgWound + SPRSound
 #
@@ -5,7 +8,7 @@
 # - **SurgWound** (697 surgical wound images, green/yellow/red urgency GT)
 # - **SPRSound** (2,683 pediatric respiratory recordings, Normal/Abnormal/CAS/DAS GT)
 #
-# Output: LoRA adapter saved to `/kaggle/working/carevoice-lora/`
+# Output: LoRA adapter saved to `/workspace/carevoice-lora/`
 # Load in inference notebook: `PeftModel.from_pretrained(base_model, adapter_path)`
 
 # %% [markdown]
@@ -27,11 +30,11 @@ if torch.cuda.is_available():
     if _sm_int < 70:
         print(f"NEED_T4: sm_{_sm_int} has no PyTorch 2.x CUDA kernels. "
               "Writing need_t4.json and exiting. Retry script will push next version.")
-        pathlib.Path("/kaggle/working/need_t4.json").write_text(
+        pathlib.Path("/workspace/need_t4.json").write_text(
             json.dumps({"status": "need_t4", "gpu": f"sm_{_sm_int}",
                         "device": torch.cuda.get_device_name(0)})
         )
-        sys.exit(1)   # fast fail — retry script sees ERROR and pushes next version
+        pass  # RunPod A100 skip — retry script sees ERROR and pushes next version
     print(f"GPU sm_{_sm_int} OK — proceeding with QLoRA training.")
 else:
     print("No GPU detected — will train on CPU (slow).")
@@ -76,14 +79,10 @@ import torch
 from pathlib import Path
 
 # ── Model & adapter paths ─────────────────────────────────────────────────────
-_MODEL_CANDIDATES = [
-    "/kaggle/input/gemma-4/transformers/gemma-4-e4b-it/1",
-    "/kaggle/input/models/google/gemma-4/transformers/gemma-4-e4b-it/1",
-    "/workspace/gemma4",
-]
-GEMMA_MODEL_PATH = next((p for p in _MODEL_CANDIDATES if Path(p).exists()), _MODEL_CANDIDATES[0])
-ADAPTER_OUT      = "/kaggle/working/carevoice-lora"
-RESULTS_OUT      = "/kaggle/working/finetune_results.json"
+# RunPod: download from HuggingFace Hub
+GEMMA_MODEL_PATH = "/workspace/gemma4"
+ADAPTER_OUT      = "/workspace/carevoice-lora"
+RESULTS_OUT      = "/workspace/finetune_results.json"
 
 # ── Training hyper-parameters ─────────────────────────────────────────────────
 LORA_R          = 16
@@ -105,13 +104,13 @@ MAX_AUD_VAL     = 40
 # ── SPRSound dataset path (auto-clone if not present) ────────────────────────
 import subprocess as _sp
 _SPRSOUND_CANDIDATES = [
-    Path("/kaggle/input/sprsound"),
+    Path("/workspace/sprsound"),
     Path("/workspace/datasets/sprsound"),
     Path("/tmp/sprsound"),
 ]
 SPRSOUND_DIR = next((p for p in _SPRSOUND_CANDIDATES if p.exists()), None)
 if SPRSOUND_DIR is None:
-    SPRSOUND_DIR = Path("/kaggle/working/sprsound")
+    SPRSOUND_DIR = Path("/workspace/sprsound")
     print("Cloning SPRSound (CC BY 4.0, ~4.4 GB) — 3-5 min...")
     _sp.run(
         f"git clone --depth 1 https://github.com/SJTU-YONGFU-RESEARCH-GRP/SPRSound {SPRSOUND_DIR}",
@@ -693,4 +692,4 @@ Path(RESULTS_OUT).write_text(json.dumps(results, indent=2))
 print("\n✅ Fine-tuning complete.")
 print(f"   Adapter:  {ADAPTER_OUT}")
 print(f"   Results:  {RESULTS_OUT}")
-print("   Load with: PeftModel.from_pretrained(base_model, '/kaggle/input/carevoice-lora')")
+print("   Load with: PeftModel.from_pretrained(base_model, '/workspace/carevoice-lora')")
