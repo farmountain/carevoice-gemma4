@@ -15,7 +15,7 @@ CareVoice: Offline Trimodal Clinical Intake with Gemma 4 (Text + Image + Audio)
 ## Video URL
 
 ```
-[PENDING — upload video_script.md recording to YouTube, paste URL here]
+https://youtu.be/OijHxsK8oUM
 ```
 
 ---
@@ -225,9 +225,9 @@ across all runs. QLoRA adapter trained on A100 but regressed JSON output quality
 - [x] GitHub repo pushed ✅ https://github.com/farmountain/carevoice-gemma4 (2026-05-05)
 - [x] writeup.md committed ✅
 - [x] retry/runpod/upload scripts committed ✅
-- [ ] Demo video recorded (3 scenes: text RF + wound photo + respiratory audio, ≤ 3 min)
-- [ ] Demo video uploaded to YouTube (public or unlisted)
-- [ ] YouTube URL pasted into this file and into submission form
+- [x] Demo video recorded via Playwright ✅ (2026-05-07)
+- [x] Demo video uploaded to YouTube ✅ https://youtu.be/OijHxsK8oUM
+- [x] YouTube URL pasted into this file ✅
 - [ ] Kaggle submission form filled and submitted before May 18 2026 deadline
 
 ---
