@@ -1,0 +1,26 @@
+{
+  "name": "gemma_hackathon",
+  "version": "1.0.0",
+  "description": "> **Gemma 4 Good Hackathon** · Health & Sciences track   > Text · Image · Audio — fully offline — any language — any device with 8 GB RAM",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/farmountain/carevoice-gemma4.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/farmountain/carevoice-gemma4/issues"
+  },
+  "homepage": "https://github.com/farmountain/carevoice-gemma4#readme",
+  "dependencies": {
+    "playwright": "^1.59.1"
+  }
+}
